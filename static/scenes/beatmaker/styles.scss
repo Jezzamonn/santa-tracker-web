@@ -1,0 +1,30 @@
+html, body {
+    background-color: #27017A;
+}
+
+.grid-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20vh;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(16, auto);
+    gap: 8px;
+}
+
+.square {
+    width: 40px;
+    height: 40px;
+    border-radius: 5px;
+    background-color: #6801FF;
+}
+
+.square:nth-child(4n+1) {
+    background-color: #883CFF;
+}
+
+.square.square--active {
+    background-color: white;
+}
