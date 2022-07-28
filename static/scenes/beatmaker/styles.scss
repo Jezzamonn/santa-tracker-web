@@ -29,8 +29,16 @@ html, body {
         background-color: #883CFF;
     }
 
-    &.square--active {
+    &.square--playing {
         background-color: white;
+    }
+
+    &.square--enabled {
+        background-color: #EA005C;
+    }
+
+    &.square--enabled.square--even-row {
+        background-color: #00FF89;
     }
 
     &:hover, &:focus {

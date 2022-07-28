@@ -5,9 +5,6 @@ api.ready(async () => {
   init();
 });
 
-const cols = 16;
-const rows = 4;
-
 /** @type {Game} */
 let game;
 
