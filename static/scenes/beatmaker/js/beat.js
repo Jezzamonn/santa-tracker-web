@@ -14,7 +14,7 @@ export class Beat {
   }
 
   getActiveInstruments(beat) {
-    instruments = [];
+    const instruments = [];
     for (let i = 0; i < this.totalInstruments; i++) {
       if (this.beats[i][beat]) {
         instruments.push(i);

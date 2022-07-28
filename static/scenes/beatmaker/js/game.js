@@ -9,12 +9,22 @@ export class Game {
   constructor() {
     /** @type {!Sequencer} */
     this.sequencer = new Sequencer();
+    this.beat = new Beat(totalBeats, totalInstruments);
 
     this.sequencer.onBeat = () => {
-      this.updateActiveColumn(this.sequencer.currentBeat);
-    }
+      const currentBeat = this.sequencer.currentBeat;
 
-    this.beat = new Beat(totalBeats, totalInstruments);
+      this.updateActiveColumn(currentBeat);
+
+      const activeInstruments = this.beat.getActiveInstruments(currentBeat);
+      for (const instrument of activeInstruments) {
+        if (instrument === 0) {
+          // play the bell? TODO: This is pretty hacky.
+          const audio = new Audio('./media/jingle-bells.mp3');
+          audio.play();
+        }
+      }
+    }
   }
 
   setUp() {

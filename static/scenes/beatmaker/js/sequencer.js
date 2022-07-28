@@ -2,11 +2,18 @@ export class Sequencer {
 
   constructor() {
     /** @type {!number} */
-    this.bpm = 150;
-    
+    this.bpm = 120;
+
+    /**
+     * The length of a beat in the sequencer.
+     *
+     * @type {!number}
+     */
+    this.beatLength = 1 / 2;
+
     /** @type {!number} */
     this.totalBeats = 16;
-    
+
     /** @type {!number} */
     this.currentBeat = -1;
 
@@ -16,7 +23,7 @@ export class Sequencer {
 
 
   get beatLengthMs() {
-    return (60 * 1000) / this.bpm;
+    return this.beatLength * (60 * 1000) / this.bpm;
   }
 
   start() {
@@ -30,5 +37,9 @@ export class Sequencer {
         this.onBeat();
       }
     }, this.beatLengthMs);
+  }
+
+  stop() {
+    
   }
 }
