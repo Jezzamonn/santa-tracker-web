@@ -15,16 +15,25 @@ html, body {
 }
 
 .square {
+    // CLear the button styling.
+    border: none;
+
     width: 40px;
     height: 40px;
     border-radius: 5px;
     background-color: #6801FF;
-}
 
-.square:nth-child(4n+1) {
-    background-color: #883CFF;
-}
+    transition: transform 0.2s ease-out;
 
-.square.square--active {
-    background-color: white;
+    &:nth-child(4n+1) {
+        background-color: #883CFF;
+    }
+
+    &.square--active {
+        background-color: white;
+    }
+
+    &:hover, &:focus {
+        transform: scale(1.05, 1.05);
+    }
 }
