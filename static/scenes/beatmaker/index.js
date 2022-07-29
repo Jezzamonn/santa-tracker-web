@@ -9,7 +9,10 @@ api.ready(async () => {
 let game;
 
 function init() {
-  game = new Game();
+  game = new Game((beatString) => {
+    // Update the URL with a query parameter of the beat
+    api.data({'beat': beatString});
+  });
   game.setUp();
   game.start();
 }

@@ -21,12 +21,19 @@ const totalInstruments = samples.length;
 
 export class Game {
 
-  constructor() {
+  /**
+   * @param {!function(string):void} onBeatChange Function to call when the user
+   * edits their beat. Called with the string representation of that beat.
+   */
+  constructor(onBeatChange) {
     /** @type {!Sequencer} */
     this.sequencer = new Sequencer();
     this.beat = new Beat(totalBeats, totalInstruments);
 
     this.sequencer.onBeat = () => this.onBeat();
+
+    /** @type {!function(string):void} */
+    this.onBeatChange = onBeatChange;
   }
 
   setUp() {
@@ -87,7 +94,7 @@ export class Game {
 
         square.addEventListener('click', () => {
           this.beat.toggleBeat(i, b);
-          this.updateUrl();
+          this.onBeatChange(this.beat.toString());
 
           const isEnabled = this.beat.isInstrumentActive(i, b);
           square.classList.toggle('square--enabled', isEnabled);
@@ -99,17 +106,6 @@ export class Game {
         gridElem.append(square);
       }
     }
-  }
-
-  updateUrl() {
-    console.log('updating it?');
-    const newUrl = new URL(location.href);
-    newUrl.search = `?beat=${this.beat.toString()}`;
-
-    // TODO: This needs to echo out to the host.
-    history.replaceState(null, '', newUrl.href);
-
-    console.log(newUrl.href);
   }
 
   start() {
