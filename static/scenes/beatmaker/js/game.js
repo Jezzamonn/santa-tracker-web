@@ -32,6 +32,12 @@ export class Game {
   setUp() {
     this.createGrid();
 
+    const url = new URL(location.href);
+    const beatString = url.searchParams.get('beat');
+    if (beatString !== null) {
+      this.beat.updateFromString(beatString);
+    }
+
     const playButton = document.querySelector('.play-button');
     playButton.addEventListener('click', () => this.playOrStop());
   }
@@ -81,6 +87,8 @@ export class Game {
 
         square.addEventListener('click', () => {
           this.beat.toggleBeat(i, b);
+          this.updateUrl();
+
           const isEnabled = this.beat.isInstrumentActive(i, b);
           square.classList.toggle('square--enabled', isEnabled);
           if (isEnabled) {
@@ -91,6 +99,17 @@ export class Game {
         gridElem.append(square);
       }
     }
+  }
+
+  updateUrl() {
+    console.log('updating it?');
+    const newUrl = new URL(location.href);
+    newUrl.search = `?beat=${this.beat.toString()}`;
+
+    // TODO: This needs to echo out to the host.
+    history.replaceState(null, '', newUrl.href);
+
+    console.log(newUrl.href);
   }
 
   start() {
