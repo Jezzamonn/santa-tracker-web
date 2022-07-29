@@ -1,8 +1,23 @@
 import { Beat } from "./beat.js";
 import { Sequencer } from "./sequencer.js";
 
+const samples = [
+  "jingle-bells",
+  "closed-hh",
+  "open-hh",
+  "snare",
+  "kick",
+  "floor-tom",
+  "floor-tom",
+  "rack-tom-1",
+  "rack-tom-2",
+  "bell",
+  "crash-right",
+  "crash-left",
+]
+
 const totalBeats = 16;
-const totalInstruments = 4;
+const totalInstruments = samples.length;
 
 export class Game {
 
@@ -11,24 +26,43 @@ export class Game {
     this.sequencer = new Sequencer();
     this.beat = new Beat(totalBeats, totalInstruments);
 
-    this.sequencer.onBeat = () => {
-      const currentBeat = this.sequencer.currentBeat;
-
-      this.updateActiveColumn(currentBeat);
-
-      const activeInstruments = this.beat.getActiveInstruments(currentBeat);
-      for (const instrument of activeInstruments) {
-        if (instrument === 0) {
-          // play the bell? TODO: This is pretty hacky.
-          const audio = new Audio('./media/jingle-bells.mp3');
-          audio.play();
-        }
-      }
-    }
+    this.sequencer.onBeat = () => this.onBeat();
   }
 
   setUp() {
     this.createGrid();
+
+    const playButton = document.querySelector('.play-button');
+    playButton.addEventListener('click', () => this.playOrStop());
+  }
+
+  playOrStop() {
+    if (this.sequencer.isPlaying) {
+      this.sequencer.stop();
+    }
+    else {
+      this.sequencer.start();
+    }
+    this.updateActiveColumn(this.sequencer.currentBeat);
+  }
+
+  onBeat() {
+    const currentBeat = this.sequencer.currentBeat;
+
+    this.updateActiveColumn(currentBeat);
+
+    const activeInstruments = this.beat.getActiveInstruments(currentBeat);
+    for (const instrument of activeInstruments) {
+      this.playInstrument(instrument);
+    }
+  }
+
+  playInstrument(instrument) {
+    // TODO: Respect mutedness.
+    const sampleName = samples[instrument];
+    const samplePath = `./media/${sampleName}.mp3`;
+    const audio = new Audio(samplePath);
+    audio.play();
   }
 
   // create elements on the page.
@@ -45,21 +79,27 @@ export class Game {
           square.classList.add('square--even-row');
         }
 
-        gridElem.append(square);
-
         square.addEventListener('click', () => {
           this.beat.toggleBeat(i, b);
-          square.classList.toggle('square--enabled', this.beat.isInstrumentActive(i, b));
+          const isEnabled = this.beat.isInstrumentActive(i, b);
+          square.classList.toggle('square--enabled', isEnabled);
+          if (isEnabled) {
+            this.playInstrument(i);
+          }
         });
+
+        gridElem.append(square);
       }
     }
   }
 
   start() {
-
     this.sequencer.start();
   }
 
+  /**
+   * @param {!number} column Which column to light up in the UI. Values outside the range will turn off highlighting for all rows.
+   */
   updateActiveColumn(column) {
     // Clear existing highlighted totalInstruments
     const activeSquares = document.querySelectorAll('.square--playing');

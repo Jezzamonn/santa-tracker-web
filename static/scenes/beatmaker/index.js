@@ -13,5 +13,3 @@ function init() {
   game.setUp();
   game.start();
 }
-
-init();

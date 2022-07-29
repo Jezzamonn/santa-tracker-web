@@ -19,15 +19,21 @@ export class Sequencer {
 
     /** @type {?function():void} */
     this.onBeat = undefined;
+
+    /** @type {?number} */
+    this.interval = undefined;
   }
 
+  get isPlaying() {
+    return this.interval !== undefined;
+  }
 
   get beatLengthMs() {
     return this.beatLength * (60 * 1000) / this.bpm;
   }
 
   start() {
-    setInterval(() => {
+    this.interval = setInterval(() => {
       this.currentBeat++;
       if (this.currentBeat >= this.totalBeats) {
         this.currentBeat = 0;
@@ -40,6 +46,11 @@ export class Sequencer {
   }
 
   stop() {
-    
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+      // Also reset to the start
+      this.currentBeat = -1;
+    }
   }
 }
