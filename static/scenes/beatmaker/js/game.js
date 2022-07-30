@@ -36,14 +36,15 @@ export class Game {
     this.onBeatChange = onBeatChange;
   }
 
-  setUp() {
-    this.createGrid();
-
-    const url = new URL(location.href);
-    const beatString = url.searchParams.get('beat');
-    if (beatString !== null) {
-      this.beat.updateFromString(beatString);
+  /**
+   * @param {?string} initialBeatString String representation of the beat.
+   */
+  setUp(initialBeatString) {
+    if (initialBeatString !== null) {
+      this.beat.updateFromString(initialBeatString);
     }
+
+    this.createGrid();
 
     const playButton = document.querySelector('.play-button');
     playButton.addEventListener('click', () => this.playOrStop());
@@ -91,6 +92,9 @@ export class Game {
         if (i % 2 == 0) {
           square.classList.add('square--even-row');
         }
+
+        const isEnabled = this.beat.isInstrumentActive(i, b);
+        square.classList.toggle('square--enabled', isEnabled);
 
         square.addEventListener('click', () => {
           this.beat.toggleBeat(i, b);

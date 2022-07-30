@@ -55,7 +55,7 @@ export class Beat {
 
     for (let c = 0; c < str.length; c += 2) {
       const i = parseInt(str.charAt(c), strRadix);
-      const b = parseInt(str.chatAt(c + 1), strRadix);
+      const b = parseInt(str.charAt(c + 1), strRadix);
       if (isNaN(i) || isNaN(b) || i >= this.totalInstruments || b >= this.totalBeats) {
         // Ignore invalid characters
         continue;
