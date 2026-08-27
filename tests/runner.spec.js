@@ -31,16 +31,17 @@ test.describe('Runner Game', () => {
 
     // Ensure __TEST_CONTROL__ is defined or fail immediately
     await gameElem.evaluate(async () => {
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 300; i++) {
         if (window.__TEST_CONTROL__) break;
         await new Promise(r => setTimeout(r, 100));
       }
       if (!window.__TEST_CONTROL__) {
         throw new Error('window.__TEST_CONTROL__ is not defined');
       }
-      if (window.Random && window.Random.setSeed) {
-        window.Random.setSeed('test1234');
+      if (!window.Random || !window.Random.setSeed) {
+        throw new Error('window.Random.setSeed is not defined');
       }
+      window.Random.setSeed('test1234');
     });
   });
 
@@ -69,26 +70,47 @@ test.describe('Runner Game', () => {
     };
 
     const initialY = await getPlayerTransformY();
+    expect(initialY).toBe(0);
 
     await iframeElem.focus();
+
+    // 1st Jump: Player jumps off the ground
     await page.keyboard.press('Space');
-    await advanceTime(page, 0.05);
+    await advanceTime(page, 0.1);
     const jump1Y = await getPlayerTransformY();
-
-    await page.keyboard.press('Space');
-    await advanceTime(page, 0.05);
-    const jump2Y = await getPlayerTransformY();
-
-    await advanceTime(page, 0.2);
-    const apexY = await getPlayerTransformY();
-
-    await advanceTime(page, 0.2);
-    const landingY = await getPlayerTransformY();
-
     expect(jump1Y).toBeLessThan(initialY);
+
+    // 2nd Jump (Double jump): Player jumps again mid-air and gains height
+    await page.keyboard.press('Space');
+    await advanceTime(page, 0.1);
+    const jump2Y = await getPlayerTransformY();
     expect(jump2Y).toBeLessThan(jump1Y);
-    expect(apexY).toBeLessThanOrEqual(jump2Y);
-    expect(landingY).toBeLessThan(apexY);
+
+    // Let the player reach apex and begin descending
+    await advanceTime(page, 0.6);
+    const midAirFallingY = await getPlayerTransformY();
+    expect(midAirFallingY).toBeLessThan(0); // still in mid-air
+
+    // 3rd Jump attempt (Triple jump): Press Space a third time while still mid-air
+    await page.keyboard.press('Space');
+    await advanceTime(page, 0.1);
+    const postTripleJumpY = await getPlayerTransformY();
+
+    // Triple jump is NOT permitted, so the player must continue falling downward (y increases toward 0)
+    // rather than jumping upwards (which would make y more negative than midAirFallingY)
+    expect(postTripleJumpY).toBeGreaterThan(midAirFallingY);
+    expect(postTripleJumpY).toBeLessThan(0);
+
+    // Advance time until the player lands back on the ground
+    await advanceTime(page, 0.5);
+    const landedY = await getPlayerTransformY();
+    expect(landedY).toBe(0);
+
+    // Once grounded, jump counter resets and jumping is permitted again
+    await page.keyboard.press('Space');
+    await advanceTime(page, 0.1);
+    const postLandingJumpY = await getPlayerTransformY();
+    expect(postLandingJumpY).toBeLessThan(0);
   });
 
   test('should increase game speed over time as levels advance', async ({ page }) => {

@@ -178,7 +178,7 @@ app.Game.prototype.pause = function() {
  * Resume the game.
  */
 app.Game.prototype.resume = function() {
-  if (this.started) {
+  if (this.started && this.paused) {
     this.paused = false;
     this.unfreezeGame();
   }
@@ -313,10 +313,11 @@ app.Game.prototype.step = function(delta) {
  * @param {number} duration
  */
 app.Game.prototype.advanceTime = function(duration) {
-  var maxStepSize = 1;
+  var fps = 60;
+  var stepDuration = 1 / fps;
   var remaining = duration;
   while (remaining > 0 && this.isPlaying) {
-    var dt = Math.min(maxStepSize, remaining);
+    var dt = Math.min(stepDuration, remaining);
     this.step(dt);
     remaining -= dt;
   }
@@ -326,19 +327,16 @@ app.Game.prototype.advanceTime = function(duration) {
  * Called each frame.
  */
 app.Game.prototype.onFrame = function() {
-  if (!this.isPlaying) {
+  if (!this.isPlaying || this.manualTime) {
     return;
   }
 
   var now = +new Date() / 1000,
     delta = now - this.lastFrame;
   this.lastFrame = now;
-
   this.step(delta);
 
-  if (!this.manualTime) {
-    this.requestId = window.requestAnimationFrame(this.onFrame);
-  }
+  this.requestId = window.requestAnimationFrame(this.onFrame);
 };
 
 /**

@@ -38,9 +38,10 @@ test.describe('Boatload Game', () => {
       if (!window.__TEST_CONTROL__) {
         throw new Error('window.__TEST_CONTROL__ is not defined');
       }
-      if (window.Random && window.Random.setSeed) {
-        window.Random.setSeed('test1234');
+      if (!window.Random || !window.Random.setSeed) {
+        throw new Error('window.Random.setSeed is not defined');
       }
+      window.Random.setSeed('test1234');
     });
   });
 

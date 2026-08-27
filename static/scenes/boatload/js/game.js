@@ -184,10 +184,9 @@ Game.prototype.step = function(delta) {
 /**
  * Manually advance game time by given number of seconds.
  * @param {number} seconds Number of seconds to advance.
- * @param {number=} opt_fps Granularity frames per second (default: 60).
  */
-Game.prototype.advanceTime = function(seconds, opt_fps) {
-  var fps = opt_fps || 60;
+Game.prototype.advanceTime = function(seconds) {
+  var fps = 60;
   var stepDuration = 1 / fps;
   var remaining = seconds;
   while (remaining > 0 && this.isPlaying) {
@@ -201,22 +200,18 @@ Game.prototype.advanceTime = function(seconds, opt_fps) {
  * Called each frame while game is running. Calls onFrame on all entities.
  */
 Game.prototype.onFrame = function() {
-  if (!this.isPlaying) {
+  if (!this.isPlaying || this.manualTime) {
     return;
   }
 
-  if (!this.manualTime) {
-    // Calculate delta from clock
-    var now = +new Date() / 1000;
-    var delta = now - this.lastFrame;
-    this.lastFrame = now;
-    this.step(delta);
-  }
+  // Calculate delta from clock
+  var now = +new Date() / 1000;
+  var delta = now - this.lastFrame;
+  this.lastFrame = now;
+  this.step(delta);
 
   // Request next frame
-  if (!this.manualTime) {
-    this.requestId = window.requestAnimationFrame(this.onFrame);
-  }
+  this.requestId = window.requestAnimationFrame(this.onFrame);
 };
 
 /**

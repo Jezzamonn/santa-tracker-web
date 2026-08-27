@@ -47,3 +47,6 @@ Random.random = function() {
   }
   return Random.generator_();
 };
+
+window['Random'] = Random;
+

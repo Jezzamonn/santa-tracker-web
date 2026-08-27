@@ -196,6 +196,7 @@
   if (window.__MANUAL_TIME__) {
     game.manualTime = true;
     window.__TEST_CONTROL__ = {
+      game,
       advanceTime: (seconds) => {
         if (!game.isPlaying && !game.started) {
           game.start();
