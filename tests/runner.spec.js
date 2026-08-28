@@ -309,11 +309,9 @@ test.describe('Runner Game', () => {
     await expect(frozenGameElem).toBeAttached();
     await expectGameOverOverlay(page);
 
-    // Dispatch restart event
-    await gameElem.evaluate(() => {
-      const event = new CustomEvent('restart');
-      window.dispatchEvent(event);
-    });
+    // Click play again on game over overlay
+    const playAgainBtn = page.locator('santa-overlay #playagainButton');
+    await playAgainBtn.click();
 
     // Assert game unfreezes (loses .frozen class)
     await expect(frozenGameElem).not.toBeAttached();

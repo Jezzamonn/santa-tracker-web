@@ -128,11 +128,9 @@ test.describe('Boatload Game', () => {
     await expect(frozenElem).toBeAttached();
     await expectGameOverOverlay(page);
 
-    // Dispatch restart event
-    await gameElem.evaluate(() => {
-      const event = new CustomEvent('restart');
-      window.dispatchEvent(event);
-    });
+    // Click play again on game over overlay
+    const playAgainBtn = page.locator('santa-overlay #playagainButton');
+    await playAgainBtn.click();
 
     // Assert game module unfreezes (loses .frozen class)
     await expect(frozenElem).not.toBeAttached();
