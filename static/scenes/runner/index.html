@@ -203,6 +203,7 @@
         }
         game.advanceTime(seconds);
       },
+      isReady: () => !!window.__SCENE_READY__,
     };
   }
 
@@ -220,6 +221,7 @@
     if (!game.started) {
       game.start();
     }
+    window.__SCENE_READY__ = true;
   });
 
 </script>

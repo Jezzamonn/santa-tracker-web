@@ -29,10 +29,10 @@ test.describe('Runner Game', () => {
     const gameElem = frameLoc.locator('#module-runner');
     await expect(gameElem).toBeAttached({ timeout: 30000 });
 
-    // Ensure __TEST_CONTROL__ is defined or fail immediately
+    // Ensure __TEST_CONTROL__ is defined and ready or fail immediately
     await gameElem.evaluate(async () => {
       for (let i = 0; i < 300; i++) {
-        if (window.__TEST_CONTROL__) break;
+        if (window.__TEST_CONTROL__ && window.__TEST_CONTROL__.isReady()) break;
         await new Promise(r => setTimeout(r, 100));
       }
       if (!window.__TEST_CONTROL__) {
