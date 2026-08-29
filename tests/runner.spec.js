@@ -142,30 +142,147 @@ test.describe('Runner Game', () => {
 
   test('should update score when presents are collected', async ({ page }) => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
+    const gameElem = frameLoc.locator('#module-runner');
+
+    // Score is initially 0 and no presents have been collected yet
+    const initialScore = await gameElem.evaluate(() => {
+      return window.__TEST_CONTROL__.game.scoreboard.score;
+    });
+    expect(initialScore).toBe(0);
+
+    const collectedPresents = frameLoc.locator('.present--collected');
+    await expect(collectedPresents).not.toBeAttached();
+
+    // Advance time so the player runs into and collects presents along the track
     await advanceTime(page, 15);
-    const entitiesLayer = frameLoc.locator('.entities-layer');
-    await expect(entitiesLayer).toBeAttached();
+
+    // Assert that presents have been collected in the scene
+    await expect(collectedPresents.first()).toBeAttached();
+    const count = await collectedPresents.count();
+    expect(count).toBeGreaterThan(0);
+
+    // Assert that scoreboard score within runner game updated
+    const finalScore = await gameElem.evaluate(() => {
+      return window.__TEST_CONTROL__.game.scoreboard.score;
+    });
+    expect(finalScore).toBeGreaterThan(initialScore);
+
+    // Assert that the score badge on the main page is updated with the new score
+    const badgeScore = await page.locator('santa-badge').evaluate((el) => el.score);
+    expect(badgeScore).toBe(finalScore);
   });
 
   test('should handle obstacle collision', async ({ page }) => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
-    await advanceTime(page, 5);
-    const hitCloud = frameLoc.locator('.hit-cloud');
-    await expect(hitCloud).toBeAttached();
+    const gameElem = frameLoc.locator('#module-runner');
+    const reindeerElem = frameLoc.locator('.reindeer');
+    const hitCloudElem = frameLoc.locator('.hit-cloud');
+
+    // Initially, reindeer is running normally and hit-cloud is hidden
+    await expect(reindeerElem).toHaveClass(/reindeer--run/);
+    await expect(reindeerElem).not.toHaveClass(/reindeer--collision/);
+    await expect(hitCloudElem).toHaveClass(/hidden/);
+
+    // At t=4s (with seed 'test1234'), the reindeer collides with an obstacle
+    await advanceTime(page, 4);
+
+    // Assert reindeer enters collision state and hit cloud is activated
+    await expect(reindeerElem).toHaveClass(/reindeer--collision/);
+    await expect(hitCloudElem).not.toHaveClass(/hidden/);
+    await expect(frameLoc.locator('.hit-cloud__inner--active')).toBeAttached();
+
+    const isCollisionState = await gameElem.evaluate(() => {
+      // REINDEER_STATE_COLLISION = 3
+      return window.__TEST_CONTROL__.game.player.state === 3;
+    });
+    expect(isCollisionState).toBe(true);
+
+    // After collision duration (2s), reindeer recovers and returns to running state
+    await advanceTime(page, 2.5);
+    await expect(reindeerElem).toHaveClass(/reindeer--run/);
+    await expect(reindeerElem).not.toHaveClass(/reindeer--collision/);
+    await expect(hitCloudElem).toHaveClass(/hidden/);
   });
 
   test('should activate boost powerup when collected', async ({ page }) => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
-    await advanceTime(page, 10);
-    const boosts = frameLoc.locator('.boosts');
-    await expect(boosts).toBeAttached();
+    const gameElem = frameLoc.locator('#module-runner');
+
+    // Initially no boosts have been collected
+    const collectedBoost = frameLoc.locator('.boost--collected');
+    await expect(collectedBoost).not.toBeAttached();
+
+    const initialCountdown = await gameElem.evaluate(() => {
+      return window.__TEST_CONTROL__.game.scoreboard.countdown;
+    });
+
+    // Spawn a time boost right along the player's running path
+    await gameElem.evaluate(() => {
+      const g = window.__TEST_CONTROL__.game;
+      g.lastBoostPos = -10000;
+      const boostX = g.distanceTraveled + 600;
+      g.addBoost(boostX);
+      const boost = g.entities[g.entities.length - 1];
+      boost.boostType = 0; // BOOST_TYPE_TIME
+      boost.elem.removeClass('boost--magnet').addClass('boost--time');
+      boost.boostTextElem.text('+00:10');
+      boost.x = boostX;
+      boost.y = -75; // ground level
+      boost.draw();
+    });
+
+    // Advance time so the player runs into the time boost
+    await advanceTime(page, 2);
+
+    // Assert that the boost is marked collected in the DOM
+    await expect(collectedBoost.first()).toBeAttached();
+
+    // Assert that the time boost added 10 seconds to the countdown
+    const newCountdown = await gameElem.evaluate(() => {
+      return window.__TEST_CONTROL__.game.scoreboard.countdown;
+    });
+    // With 2 seconds of game time elapsed and +10s boost added, newCountdown > initialCountdown
+    expect(newCountdown).toBeGreaterThan(initialCountdown);
   });
 
   test('should activate magnet powerup when collected', async ({ page }) => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
-    await advanceTime(page, 10);
-    const magnet = frameLoc.locator('.magnet');
-    await expect(magnet).toBeAttached();
+    const gameElem = frameLoc.locator('#module-runner');
+    const magnetElem = frameLoc.locator('.magnet');
+
+    // Initially magnet powerup is not active
+    await expect(magnetElem).not.toHaveClass(/magnet--active/);
+    const initialMagnetMode = await gameElem.evaluate(() => window.__TEST_CONTROL__.game.magnetMode);
+    expect(initialMagnetMode).toBe(false);
+
+    // Spawn a magnet boost right along the player's running path
+    await gameElem.evaluate(() => {
+      const g = window.__TEST_CONTROL__.game;
+      g.lastBoostPos = -10000;
+      const boostX = g.distanceTraveled + 600;
+      g.addBoost(boostX);
+      const boost = g.entities[g.entities.length - 1];
+      boost.boostType = 1; // BOOST_TYPE_MAGNET
+      boost.elem.removeClass('boost--time').addClass('boost--magnet');
+      boost.boostTextElem.empty();
+      boost.x = boostX;
+      boost.y = -75; // ground level
+      boost.draw();
+    });
+
+    // Advance time so player runs into the magnet boost
+    await advanceTime(page, 2);
+
+    // Assert magnet powerup activated in the UI and game state
+    await expect(magnetElem).toHaveClass(/magnet--active/);
+    const magnetModeActive = await gameElem.evaluate(() => window.__TEST_CONTROL__.game.magnetMode);
+    expect(magnetModeActive).toBe(true);
+
+    // Advance time past the magnet duration (20s) and assert it deactivates
+    await advanceTime(page, 21);
+    await expect(magnetElem).not.toHaveClass(/magnet--active/);
+    const magnetModeEnded = await gameElem.evaluate(() => window.__TEST_CONTROL__.game.magnetMode);
+    expect(magnetModeEnded).toBe(false);
   });
 
   test('should end game and show gameover screen when timer expires', async ({ page }) => {
