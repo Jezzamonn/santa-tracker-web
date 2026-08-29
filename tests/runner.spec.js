@@ -207,32 +207,23 @@ test.describe('Runner Game', () => {
   test('should activate boost powerup when collected', async ({ page }) => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
     const gameElem = frameLoc.locator('#module-runner');
+    const iframeElem = page.locator('iframe[src*="scenes/runner"]');
 
     // Initially no boosts have been collected
     const collectedBoost = frameLoc.locator('.boost--collected');
     await expect(collectedBoost).not.toBeAttached();
 
+    // Advance time towards naturally spawned time boost (at x=30278, y=-244)
+    await advanceTime(page, 69.0);
+
     const initialCountdown = await gameElem.evaluate(() => {
       return window.__TEST_CONTROL__.game.scoreboard.countdown;
     });
 
-    // Spawn a time boost right along the player's running path
-    await gameElem.evaluate(() => {
-      const g = window.__TEST_CONTROL__.game;
-      g.lastBoostPos = -10000;
-      const boostX = g.distanceTraveled + 600;
-      g.addBoost(boostX);
-      const boost = g.entities[g.entities.length - 1];
-      boost.boostType = 0; // BOOST_TYPE_TIME
-      boost.elem.removeClass('boost--magnet').addClass('boost--time');
-      boost.boostTextElem.text('+00:10');
-      boost.x = boostX;
-      boost.y = -75; // ground level
-      boost.draw();
-    });
-
-    // Advance time so the player runs into the time boost
-    await advanceTime(page, 2);
+    // Jump using native keyboard input to collect the time boost
+    await iframeElem.focus();
+    await page.keyboard.press('Space');
+    await advanceTime(page, 1.5);
 
     // Assert that the boost is marked collected in the DOM
     await expect(collectedBoost.first()).toBeAttached();
@@ -241,7 +232,7 @@ test.describe('Runner Game', () => {
     const newCountdown = await gameElem.evaluate(() => {
       return window.__TEST_CONTROL__.game.scoreboard.countdown;
     });
-    // With 2 seconds of game time elapsed and +10s boost added, newCountdown > initialCountdown
+    // With 1.5 seconds of game time elapsed and +10s boost added, newCountdown > initialCountdown
     expect(newCountdown).toBeGreaterThan(initialCountdown);
   });
 
@@ -249,29 +240,22 @@ test.describe('Runner Game', () => {
     const frameLoc = page.frameLocator('iframe[src*="scenes/runner"]');
     const gameElem = frameLoc.locator('#module-runner');
     const magnetElem = frameLoc.locator('.magnet');
+    const iframeElem = page.locator('iframe[src*="scenes/runner"]');
 
     // Initially magnet powerup is not active
     await expect(magnetElem).not.toHaveClass(/magnet--active/);
     const initialMagnetMode = await gameElem.evaluate(() => window.__TEST_CONTROL__.game.magnetMode);
     expect(initialMagnetMode).toBe(false);
 
-    // Spawn a magnet boost right along the player's running path
-    await gameElem.evaluate(() => {
-      const g = window.__TEST_CONTROL__.game;
-      g.lastBoostPos = -10000;
-      const boostX = g.distanceTraveled + 600;
-      g.addBoost(boostX);
-      const boost = g.entities[g.entities.length - 1];
-      boost.boostType = 1; // BOOST_TYPE_MAGNET
-      boost.elem.removeClass('boost--time').addClass('boost--magnet');
-      boost.boostTextElem.empty();
-      boost.x = boostX;
-      boost.y = -75; // ground level
-      boost.draw();
-    });
+    // Advance time towards naturally spawned magnet boost (at x=11778, y=-589)
+    await advanceTime(page, 30.4);
 
-    // Advance time so player runs into the magnet boost
-    await advanceTime(page, 2);
+    // Perform double jump using native keyboard input to collect the high-altitude magnet boost
+    await iframeElem.focus();
+    await page.keyboard.press('Space');
+    await advanceTime(page, 0.3);
+    await page.keyboard.press('Space');
+    await advanceTime(page, 0.8);
 
     // Assert magnet powerup activated in the UI and game state
     await expect(magnetElem).toHaveClass(/magnet--active/);
