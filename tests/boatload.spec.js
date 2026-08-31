@@ -29,18 +29,19 @@ test.describe('Boatload Game', () => {
     const gameElem = frameLoc.locator('#module-boatload');
     await expect(gameElem).toBeVisible({ timeout: 30000 });
 
-    // Ensure __TEST_CONTROL__ is defined or fail immediately
+    // Ensure __TEST_CONTROL__ is defined and ready or fail immediately
     await gameElem.evaluate(async () => {
       for (let i = 0; i < 100; i++) {
-        if (window.__TEST_CONTROL__) break;
+        if (window.__TEST_CONTROL__ && window.__TEST_CONTROL__.isReady()) break;
         await new Promise(r => setTimeout(r, 100));
       }
       if (!window.__TEST_CONTROL__) {
         throw new Error('window.__TEST_CONTROL__ is not defined');
       }
-      if (window.Random && window.Random.setSeed) {
-        window.Random.setSeed('test1234');
+      if (!window.Random || !window.Random.setSeed) {
+        throw new Error('window.Random.setSeed is not defined');
       }
+      window.Random.setSeed('test1234');
     });
   });
 
@@ -127,11 +128,9 @@ test.describe('Boatload Game', () => {
     await expect(frozenElem).toBeAttached();
     await expectGameOverOverlay(page);
 
-    // Dispatch restart event
-    await gameElem.evaluate(() => {
-      const event = new CustomEvent('restart');
-      window.dispatchEvent(event);
-    });
+    // Click play again on game over overlay
+    const playAgainBtn = page.locator('santa-overlay #playagainButton');
+    await playAgainBtn.click();
 
     // Assert game module unfreezes (loses .frozen class)
     await expect(frozenElem).not.toBeAttached();
