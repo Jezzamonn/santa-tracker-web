@@ -1946,6 +1946,9 @@
 	"scene_jetpack": {
 		"message": "Elf Jetpack"
 	},
+	"scene_jollyobby": {
+		"message": "Jolly Obby"
+	},
 	"scene_latlong": {
 		"message": "Present Delivery"
 	},

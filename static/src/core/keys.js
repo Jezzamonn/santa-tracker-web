@@ -44,6 +44,14 @@ export default function configureCustomKeys(loaderElement) {
     'ArrowUp': 38,
     'ArrowRight': 39,
     'ArrowDown': 40,
+    'w': 87,
+    'W': 87,
+    'a': 65,
+    'A': 65,
+    's': 83,
+    'S': 83,
+    'd': 68,
+    'D': 68,
   };
 
   /**
@@ -62,18 +70,88 @@ export default function configureCustomKeys(loaderElement) {
     }
   });
 
-  document.body.addEventListener('keydown', (ev) => {
-    // Notice gameplay key events from the host frame and focus on the loader.
+  const hostHeldKeys = new Map();
+  const getTrackId = (ev) => ev.code || (keycodeMap[ev.key] ? `kc_${keycodeMap[ev.key]}` : ev.key);
+
+  const isEditableHostTarget = (ev) => {
+    const el = (ev.composedPath && ev.composedPath()[0]) || ev.target;
+    if (!el || !el.tagName) {
+      return false;
+    }
+    const tag = el.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(el.isContentEditable);
+  };
+
+  window.addEventListener('keydown', (ev) => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || isEditableHostTarget(ev)) {
+      return;
+    }
     const code = keycodeMap[ev.key];
     if (!code) {
-      return false;  // not part of map, just ignore
+      return;
+    }
+    const {control, hidden} = global.getState();
+    if (loaderElement.disabled || !control || hidden) {
+      return;
     }
 
-    // We used to dispatch a fake event to the scene so that the keyboard feels fluid, but we never
-    // followed up with keydown so it caused a bunch of problems.
-    // We do this in the gamepad handler, but ALL input is assumed to be coming from the gamepad.
     ev.preventDefault();
-    loaderElement.focus();
+    const trackId = getTrackId(ev);
+    hostHeldKeys.set(trackId, {key: ev.key, code: ev.code || '', keyCode: code});
+    control.send({
+      type: 'keydown',
+      payload: {
+        key: ev.key,
+        code: ev.code || '',
+        keyCode: code,
+        repeat: Boolean(ev.repeat),
+      },
+    });
+  });
+
+  window.addEventListener('keyup', (ev) => {
+    const trackId = getTrackId(ev);
+    const entry = hostHeldKeys.get(trackId);
+    if (!entry) {
+      return;
+    }
+    hostHeldKeys.delete(trackId);
+    const {control, hidden} = global.getState();
+    if (control && !hidden) {
+      ev.preventDefault();
+      control.send({
+        type: 'keyup',
+        payload: {
+          key: ev.key || entry.key,
+          code: ev.code || entry.code,
+          keyCode: entry.keyCode,
+          repeat: false,
+        },
+      });
+    }
+    if (hostHeldKeys.size === 0 && !loaderElement.disabled) {
+      loaderElement.focus();
+    }
+  });
+
+  window.addEventListener('blur', () => {
+    if (hostHeldKeys.size > 0 && document.activeElement !== loaderElement) {
+      const {control, hidden} = global.getState();
+      if (control && !hidden) {
+        for (const entry of hostHeldKeys.values()) {
+          control.send({
+            type: 'keyup',
+            payload: {
+              key: entry.key,
+              code: entry.code,
+              keyCode: entry.keyCode,
+              repeat: false,
+            },
+          });
+        }
+      }
+    }
+    hostHeldKeys.clear();
   });
 
   // These are vague estimates (in ms) for gamepad emulation. We can't get the system's repeat rate

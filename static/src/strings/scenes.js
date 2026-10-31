@@ -44,6 +44,7 @@ export default {
   'jamband': _msg`scene_jamband`,
   'jetpack': _msg`scene_jetpack`,
   'jingle': _msg`scene_videoscene_jingle`,
+  'jollyobby': _msg`scene_jollyobby`,
   'latlong': _msg`scene_latlong`,
   'liftoff': _msg`scene_videoscene_liftoff`,  // 2013
   'likealight': _msg`scene_videoscene_likealight`,

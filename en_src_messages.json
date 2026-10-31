@@ -2575,6 +2575,10 @@
     "description": "Title of a scene/game. Fly through the air and collect presents while avoiding obstacles.",
     "message": "Elf Jetpack"
   },
+  "scene_jollyobby": {
+    "description": "Title of a scene/game. Jump across a colorful 3D holiday obstacle course.",
+    "message": "Jolly Obby"
+  },
   "scene_latlong": {
     "description": "Title of a scene/game. Find the right places on a map to deliver presents to.",
     "message": "Present Delivery"
