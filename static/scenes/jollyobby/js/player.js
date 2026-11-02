@@ -29,6 +29,46 @@ const ELF_SOLE_Y_OFFSET = 0.04; // Places minY (-0.0505 * 0.80) flush at y = 0.0
 const SHADOW_RADIUS = 1.1;
 const SHADOW_MAX_DROP = 16.0;
 
+// Brand-palette ("Skin Tone & Hair") brown, chosen to keep clear contrast with
+// the elf texture's skin tone (#B8906E, close to brand Skin3 #BF8F68).
+export const ELF_HAIR_COLOR = '#7C5539';
+// Hair block of the 512x512 elf texture atlas (matches snowball/entities/elf.js
+// generateElfTexture: hair + ponytail occupy x 0..256, y 0..153).
+const HAIR_UV_RECT = Object.freeze({ x: 0, y: 0, width: 256, height: 153, atlasSize: 512 });
+
+/**
+ * Returns a copy of the elf's base-color texture with the (white) hair block
+ * repainted in `hairColor`, preserving the atlas' alpha (e.g. ponytail cut-out).
+ * Returns null when there is no drawable image or no DOM canvas (Node tests).
+ */
+function createRecoloredHairTexture(baseTexture, hairColor) {
+  const image = baseTexture && baseTexture.image;
+  const doc = globalThis.document;
+  if (!image || !doc || typeof doc.createElement !== 'function') return null;
+  const width = image.width || 0;
+  const height = image.height || 0;
+  if (!width || !height) return null;
+
+  const canvas = doc.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.drawImage(image, 0, 0, width, height);
+  const sx = width / HAIR_UV_RECT.atlasSize;
+  const sy = height / HAIR_UV_RECT.atlasSize;
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = hairColor;
+  ctx.fillRect(HAIR_UV_RECT.x * sx, HAIR_UV_RECT.y * sy, HAIR_UV_RECT.width * sx, HAIR_UV_RECT.height * sy);
+  ctx.globalCompositeOperation = 'source-over';
+
+  const texture = baseTexture.clone();
+  texture.image = canvas;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 const PROCEDURAL_BONE_NAMES = [
   'elf_rig_upper_armL',
   'elf_rig_upper_armR',
@@ -125,11 +165,23 @@ export async function loadElfPlayer({
   // elf-animated.gltf faces model +Z; rotating by PI aligns avatar local -Z with facingYaw = 0 (North).
   elfVisual.rotation.set(0, Math.PI, 0);
 
+  const ownedTextures = [];
+  const ownedMaterials = [];
   elfVisual.traverse((child) => {
     if (child.isMesh || child.isSkinnedMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
       child.frustumCulled = false;
+      // Give the player its own material so recoloring never touches the shared GLTF.
+      if (child.material && !Array.isArray(child.material)) {
+        const hairTexture = createRecoloredHairTexture(child.material.map, ELF_HAIR_COLOR);
+        if (hairTexture) {
+          child.material = child.material.clone();
+          child.material.map = hairTexture;
+          ownedMaterials.push(child.material);
+          ownedTextures.push(hairTexture);
+        }
+      }
     }
   });
   root.add(elfVisual);
@@ -343,6 +395,8 @@ export async function loadElfPlayer({
     shadowGeometry.dispose();
     shadowMaterial.dispose();
     shadowTexture.dispose();
+    for (const tex of ownedTextures) tex.dispose();
+    for (const mat of ownedMaterials) mat.dispose();
   }
 
   return Object.freeze({
