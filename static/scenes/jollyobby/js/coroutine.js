@@ -119,6 +119,20 @@ export function* tween(duration, onUpdate, ease = easeInOutCubic) {
   }
 }
 
+/**
+ * Coroutine helper that suspends for `seconds` of simulation time.
+ * Use with `yield* wait(...)` inside a coroutine.
+ * @param {number} seconds
+ */
+export function* wait(seconds) {
+  const target = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  let elapsed = 0;
+  while (elapsed < target) {
+    const dt = yield;
+    elapsed += Number.isFinite(dt) && dt > 0 ? dt : 0;
+  }
+}
+
 export function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }

@@ -1301,8 +1301,22 @@ async function navigateToCheckpoint(page, targetCheckpointIndex, opts = {}) {
   return navigateToTarget(page, targetCheckpointIndex, opts);
 }
 
+// Mirrors COMPLETION_DELAY in static/scenes/jollyobby/js/constants.js: seconds
+// between reaching the finish and the host game-over overlay appearing.
+const COMPLETION_DELAY_SEC = 3.0;
+
+/**
+ * Navigates to the Section 10 finish. Unless `opts.skipCompletionDelay` is set,
+ * also advances manual time past the post-finish delay so the host game-over
+ * overlay is showing when this resolves.
+ */
 async function navigateCourseToGoal(page, opts = {}) {
-  return navigateToTarget(page, 10, opts);
+  const result = await navigateToTarget(page, 10, opts);
+  if (result.reached && !opts.skipCompletionDelay) {
+    await advanceTime(page, COMPLETION_DELAY_SEC + 0.1);
+    result.snapshot = await getSnapshot(page);
+  }
+  return result;
 }
 
 module.exports = {
@@ -1310,6 +1324,7 @@ module.exports = {
   BASE_REPO_ROOT,
   SCENE_DIR,
   DEFAULT_SEED,
+  COMPLETION_DELAY_SEC,
   jollyobby,
   expectGameOverOverlay,
   resolveServerUrls,

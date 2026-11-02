@@ -165,3 +165,18 @@ test('camera auto-turn is cancelled by drag-orbit, scroll-zoom, and setSpawnYaw'
     cam.dispose();
   }
 });
+
+test('wait() suspends a coroutine for the requested simulation time', async () => {
+  const { wait } = await import('../js/coroutine.js');
+  const runner = createCoroutineRunner();
+  let fired = false;
+  runner.start(function* () {
+    yield* wait(0.5);
+    fired = true;
+  });
+  for (let i = 0; i < 29; i++) runner.update(1 / 60);
+  assert.equal(fired, false);
+  runner.update(1 / 60);
+  runner.update(1 / 60);
+  assert.equal(fired, true);
+});

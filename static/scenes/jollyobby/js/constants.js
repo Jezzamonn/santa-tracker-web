@@ -21,6 +21,9 @@
 
 export const TOTAL_SECTIONS = 10;
 
+// Seconds between reaching the Section 10 finish and showing the host game-over screen.
+export const COMPLETION_DELAY = 3.0;
+
 export const PHYSICS_CONFIG = Object.freeze({
   WALK_SPEED: 16.0,          // studs/s
   GROUND_ACCEL: 180.0,       // studs/s^2

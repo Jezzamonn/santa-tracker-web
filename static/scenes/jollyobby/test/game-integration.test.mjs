@@ -26,7 +26,7 @@ globalThis.document = Object.assign(new EventTarget(), {
   baseURI: 'http://127.0.0.1:10380/st/scenes/jollyobby/index.html',
 });
 
-const { CAMERA_CONFIG } = await import('../js/constants.js');
+const { CAMERA_CONFIG, COMPLETION_DELAY } = await import('../js/constants.js');
 const { createHostBridge } = await import('../js/host-bridge.js');
 const { parseSnowboxObjTemplates } = await import('../js/props.js');
 const { createJollyObbyGame } = await import('../js/game.js');
@@ -512,11 +512,31 @@ test('full 10-section genuine keyboard + mouse-orbit waypoint runner traverses C
       assert.equal(s.maxLevel, 10);
       assert.equal('score' in s, false);
     }
+    // The host game-over screen waits COMPLETION_DELAY seconds after the finish
+    // while held controls stay frozen and the elf settles on the summit dais.
+    assert.equal(h.apiCalls.gameovers.length, 0, 'gameover() must be delayed after reaching the goal');
+    setKey(h.win, 'KeyW', 'w', true);
+    setKey(h.win, 'Space', ' ', true);
+    tc.advanceTime(0.5);
+    const settledSnap = tc.getSnapshot();
+    assert.equal(settledSnap.player.grounded, true, 'player must land on the summit after finishing');
+    const startToFinish = Math.hypot(settledSnap.player.x - finalSnap.player.x, settledSnap.player.z - finalSnap.player.z);
+    assert.ok(startToFinish < 2.0, `player drifted ${startToFinish.toFixed(3)} studs after finishing`);
+    tc.advanceTime(COMPLETION_DELAY - 0.5 - 0.1);
+    assert.equal(h.apiCalls.gameovers.length, 0, 'gameover() must not fire before COMPLETION_DELAY');
+    const beforeGameOver = tc.getSnapshot();
+    assert.ok(
+      Math.hypot(beforeGameOver.player.x - settledSnap.player.x, beforeGameOver.player.z - settledSnap.player.z) < 1e-6,
+      'held movement keys must not move the player after finishing'
+    );
+    tc.advanceTime(0.2);
+    setKey(h.win, 'KeyW', 'w', false);
+    setKey(h.win, 'Space', ' ', false);
     assert.equal(h.apiCalls.gameovers.length, 1);
     assert.equal(h.apiCalls.gameovers[0].length, 0);
 
     // Post-completion control freeze check: holding KeyW + Space must NOT move the celebrating player
-    const frozenPos = { ...finalSnap.player };
+    const frozenPos = { ...tc.getSnapshot().player };
     setKey(h.win, 'KeyW', 'w', true);
     setKey(h.win, 'Space', ' ', true);
     tc.advanceTime(1.0);

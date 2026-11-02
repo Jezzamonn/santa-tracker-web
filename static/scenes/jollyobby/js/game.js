@@ -23,10 +23,12 @@
 import * as THREE from 'three';
 import {
   TOTAL_SECTIONS,
+  COMPLETION_DELAY,
   PHYSICS_CONFIG,
   CAMERA_CONFIG,
   SOUND_EVENTS,
 } from './constants.js';
+import { createCoroutineRunner, wait } from './coroutine.js';
 import { createHostBridge } from './host-bridge.js';
 import { createInputController } from './input.js';
 import { createCameraController } from './camera.js';
@@ -38,6 +40,15 @@ import { createEffectsManager } from './effects.js';
 import { createCourse } from './course.js';
 
 const MANUAL_FRAME_DT = 1 / 60;
+
+// Physics input used after the finish: no movement or jumps, so the elf just
+// settles (lands and decelerates) on the summit dais.
+const NEUTRAL_INPUT = Object.freeze({
+  moveX: 0,
+  moveZ: 0,
+  jumpHeld: false,
+  consumeJumpPressed: () => false,
+});
 
 function deepFreeze(obj) {
   if (!obj || typeof obj !== 'object' || Object.isFrozen(obj)) {
@@ -121,6 +132,8 @@ export function createJollyObbyGame({
   let rafId = null;
   let lastFrameMs = null;
   let disposed = false;
+  // Timed game sequences (e.g. the post-finish delay) run on the simulation clock.
+  const coroutines = createCoroutineRunner();
 
   function syncTelemetryFromSubsystems() {
     if (playerAvatar) {
@@ -178,12 +191,20 @@ export function createJollyObbyGame({
     if (dt <= 0) return;
 
     state.courseElapsed += dt;
+    coroutines.update(dt);
     course.update(dt, state.courseElapsed);
     environment.update(dt, state.courseElapsed);
 
     if (state.completed) {
-      // Controls are frozen after Section 10 completion while celebration continues
-      state.player.velocity = { x: 0, y: 0, z: 0 };
+      // Player input is ignored after the finish; physics keeps running with
+      // neutral input so a mid-air finish still lands and settles on the dais.
+      const settle = physics.step(dt, NEUTRAL_INPUT, cameraCtrl.getMovementBasis(), course.colliders);
+      if (!settle.hitHazard && !settle.fellInVoid) {
+        state.player.position = settle.position;
+        state.player.velocity = settle.velocity;
+        state.player.grounded = settle.grounded;
+        state.player.facingYaw = settle.facingYaw;
+      }
       playerAvatar.update(dt, state.player, { celebrating: true }, course.colliders);
       cameraCtrl.update(dt, state.player.position);
       effects.update(dt);
@@ -235,11 +256,13 @@ export function createJollyObbyGame({
       state.completed = true;
       course.setActiveCheckpoint(TOTAL_SECTIONS - 1);
       input.clear();
-      state.player.velocity = { x: 0, y: 0, z: 0 };
-      state.player.grounded = true;
       playerAvatar.triggerCelebrate();
       effects.emitGoalCelebration(course.finishGoal.position);
-      bridge.triggerCompletion();
+      // Let the celebration play out before the host game-over screen appears.
+      coroutines.start(function* () {
+        yield* wait(COMPLETION_DELAY);
+        bridge.triggerCompletion();
+      });
     }
 
     playerAvatar.update(dt, state.player, { celebrating: state.completed }, course.colliders);
@@ -343,6 +366,7 @@ export function createJollyObbyGame({
 
   function resetFullRun() {
     if (!state.ready) return;
+    coroutines.cancelAll();
     state.completed = false;
     state.paused = false;
     state.activeCheckpoint = 0;
@@ -470,6 +494,7 @@ export function createJollyObbyGame({
 
   function dispose() {
     disposed = true;
+    coroutines.cancelAll();
     if (rafId !== null && targetWindow && typeof targetWindow.cancelAnimationFrame === 'function') {
       targetWindow.cancelAnimationFrame(rafId);
     }
