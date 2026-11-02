@@ -224,6 +224,8 @@ export function createJollyObbyGame({
       const cp = course.checkpoints[state.activeCheckpoint];
       if (cp) {
         effects.emitCheckpointBurst(cp.spawnPosition);
+        // Ease the camera around to face the next section's direction.
+        cameraCtrl.turnToYaw(cp.spawnYaw);
       }
     }
 

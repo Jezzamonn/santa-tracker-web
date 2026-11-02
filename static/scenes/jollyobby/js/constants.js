@@ -51,6 +51,7 @@ export const CAMERA_CONFIG = Object.freeze({
   TARGET_HEIGHT_OFFSET: 3.5, // studs above player feet
   ORBIT_SENSITIVITY: 0.0055, // rad/px
   ZOOM_STEP: 2.0,            // studs per wheel notch
+  AUTO_TURN_DURATION: 0.9,   // s, eased camera turn toward a newly reached checkpoint's direction
   FOV: 60,
 });
 

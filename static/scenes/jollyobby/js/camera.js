@@ -19,9 +19,19 @@
  */
 
 import { CAMERA_CONFIG } from './constants.js';
+import { createCoroutineRunner, tween } from './coroutine.js';
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
+}
+
+/** Wraps an angle difference into [-PI, PI) so turns take the shortest path. */
+function shortestAngleDelta(from, to) {
+  const twoPi = Math.PI * 2;
+  let delta = (to - from) % twoPi;
+  if (delta >= Math.PI) delta -= twoPi;
+  if (delta < -Math.PI) delta += twoPi;
+  return delta;
 }
 
 export function createCameraController(threeCamera, domElement, config = CAMERA_CONFIG) {
@@ -29,6 +39,11 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
   let pitch = config.DEFAULT_PITCH;
   let distance = config.DEFAULT_DISTANCE;
   let targetDistance = config.DEFAULT_DISTANCE;
+
+  // Automatic camera motions (e.g. turning toward a new checkpoint) run as
+  // coroutines on the simulation clock; any user camera input cancels them.
+  const coroutines = createCoroutineRunner();
+  let autoTurn = null;
 
   let initializedTarget = false;
   const target = { x: 0, y: config.TARGET_HEIGHT_OFFSET, z: 0 };
@@ -91,10 +106,40 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
     dragCheckButtons = false;
   }
 
+  function cancelAutoTurn() {
+    if (autoTurn) {
+      autoTurn.cancel();
+      autoTurn = null;
+    }
+  }
+
+  /**
+   * Smoothly rotates the camera yaw to `goalYaw` over `duration` seconds along
+   * the shortest arc. Replaces any in-flight automatic turn; cancelled by user
+   * camera input (drag-orbit or scroll-zoom) or by `setSpawnYaw`.
+   */
+  function turnToYaw(goalYaw, duration = config.AUTO_TURN_DURATION) {
+    if (!Number.isFinite(goalYaw)) return;
+    cancelAutoTurn();
+    const startYaw = Number.isFinite(yaw) ? yaw : config.DEFAULT_YAW;
+    const delta = shortestAngleDelta(startYaw, goalYaw);
+    if (Math.abs(delta) < 1e-6) return;
+    const handle = coroutines.start(function* () {
+      yield* tween(duration, (t) => {
+        yaw = startYaw + delta * t;
+      });
+      if (autoTurn === handle) {
+        autoTurn = null;
+      }
+    });
+    autoTurn = handle;
+  }
+
   function onMouseDown(event) {
     if (!event) return;
     if (event.button !== undefined && event.button !== 0 && event.button !== 2) return;
     if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+    cancelAutoTurn();
     isDragging = true;
     dragCheckButtons = typeof event.buttons !== 'number' || (event.buttons & 3) !== 0;
     lastClientX = event.clientX;
@@ -124,6 +169,9 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
     lastClientX = event.clientX;
     lastClientY = event.clientY;
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    if (dx !== 0 || dy !== 0) {
+      cancelAutoTurn();
+    }
 
     const nextYaw = yaw - dx * config.ORBIT_SENSITIVITY;
     if (Number.isFinite(nextYaw)) {
@@ -155,6 +203,7 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
     }
     const rawDelta = Number(event.deltaY);
     if (!Number.isFinite(rawDelta) || rawDelta === 0) return;
+    cancelAutoTurn();
 
     let notches;
     if (event.deltaMode === 1) {
@@ -186,6 +235,7 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
   }
 
   function setSpawnYaw(nextYaw) {
+    cancelAutoTurn();
     yaw = Number.isFinite(nextYaw) ? nextYaw + 0 : config.DEFAULT_YAW;
     applyCameraTransform();
   }
@@ -202,6 +252,10 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
   function update(dt, playerPosition) {
     const numericDt = Number(dt);
     const safeDt = Number.isFinite(numericDt) && numericDt > 0 ? numericDt : 0;
+
+    if (safeDt > 0) {
+      coroutines.update(safeDt);
+    }
 
     if (
       playerPosition &&
@@ -253,11 +307,14 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
       pitch,
       distance,
       target: { x: target.x, y: target.y, z: target.z },
+      autoTurning: autoTurn !== null,
     };
   }
 
   function dispose() {
     clearDrag();
+    coroutines.cancelAll();
+    autoTurn = null;
     if (domElement && typeof domElement.removeEventListener === 'function') {
       domElement.removeEventListener('mousedown', onMouseDown);
       domElement.removeEventListener('wheel', onWheel);
@@ -274,5 +331,14 @@ export function createCameraController(threeCamera, domElement, config = CAMERA_
   }
 
   applyCameraTransform();
-  return Object.freeze({ update, setSpawnYaw, getMovementBasis, getState, clearDrag, dispose });
+  return Object.freeze({
+    update,
+    setSpawnYaw,
+    turnToYaw,
+    cancelAutoTurn,
+    getMovementBasis,
+    getState,
+    clearDrag,
+    dispose,
+  });
 }
