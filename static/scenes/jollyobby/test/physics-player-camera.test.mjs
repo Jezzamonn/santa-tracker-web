@@ -649,3 +649,44 @@ test('player.js loads real Snowball elf-animated.gltf with 0 warnings across idl
   }
   assert.deepEqual(warnings, [], 'loadElfPlayer must emit zero console warnings');
 });
+
+test('player.js airborne pose stays stable across a full jump (no compounding leg spin)', async () => {
+  const gltfJson = JSON.parse(
+    fs.readFileSync(path.join(REPO_ROOT, 'static/scenes/snowball/models/elf-animated.gltf'), 'utf8')
+  );
+  const binBuf = fs.readFileSync(path.join(REPO_ROOT, 'static/scenes/snowball/models/elf-animated.bin'));
+  globalThis.ProgressEvent ??= Event;
+  gltfJson.buffers[0].uri = `data:application/octet-stream;base64,${binBuf.toString('base64')}`;
+  delete gltfJson.images;
+  delete gltfJson.textures;
+  for (const mat of gltfJson.materials || []) {
+    if (mat.pbrMetallicRoughness) delete mat.pbrMetallicRoughness.baseColorTexture;
+  }
+  const gltf = await new GLTFLoader().parseAsync(JSON.stringify(gltfJson), '');
+  const elf = await loadElfPlayer({ scene: new THREE.Scene(), gltf });
+  const bones = {};
+  elf.root.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+  });
+  const legBones = ['elf_rig_thighL', 'elf_rig_thighR', 'elf_rig_shinL', 'elf_rig_shinR'];
+
+  for (let i = 0; i < 20; i++) {
+    elf.update(1 / 60, { position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: -16 }, grounded: true, facingYaw: 0 });
+  }
+  let vy = PHYSICS_CONFIG.JUMP_VELOCITY;
+  const settled = {};
+  for (let i = 0; i < 60; i++) {
+    vy = Math.max(PHYSICS_CONFIG.TERMINAL_VELOCITY, vy + PHYSICS_CONFIG.GRAVITY / 60);
+    elf.update(1 / 60, { position: { x: 0, y: 2, z: 0 }, velocity: { x: 0, y: vy, z: -16 }, grounded: false, facingYaw: 0 });
+    if (i === 10) {
+      for (const name of legBones) settled[name] = bones[name].quaternion.clone();
+    }
+    if (i > 10) {
+      for (const name of legBones) {
+        const angle = bones[name].quaternion.angleTo(settled[name]);
+        assert.ok(angle < 1.0, `${name} drifted ${angle.toFixed(3)} rad at airborne frame ${i}`);
+      }
+    }
+  }
+  elf.dispose();
+});

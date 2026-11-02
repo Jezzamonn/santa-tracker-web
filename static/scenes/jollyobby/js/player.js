@@ -291,11 +291,14 @@ export async function loadElfPlayer({
       airBlend = safeDt > 0 ? airBlend * Math.exp(-20 * safeDt) : 0;
     }
 
+    // Undo last frame's procedural airborne offsets before sampling the mixer.
+    // three.js PropertyMixer only writes a bone when its sampled value changes,
+    // so while the run clip is frozen mid-air (timeScale 0) it can skip bones
+    // and the offsets would otherwise compound every frame (spinning legs).
+    restorePostMixerQuats();
     if (safeDt > 0) {
       mixer.update(safeDt);
       cachePostMixerQuats();
-    } else {
-      restorePostMixerQuats();
     }
 
     // Post-mixer joyful airborne leap/glide pose (idempotent even when dt === 0)
